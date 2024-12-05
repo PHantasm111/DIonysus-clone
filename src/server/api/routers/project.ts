@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { pollCommit } from "@/lib/github";
 
 export const projectRouter = createTRPCRouter({
     createProject: protectedProcedure.input(
@@ -20,6 +21,7 @@ export const projectRouter = createTRPCRouter({
                 }
             }
         })
+        await pollCommit(project.id)
         return project;
     }),
     getProjects: protectedProcedure.query(async ({ ctx }) => {
@@ -32,6 +34,14 @@ export const projectRouter = createTRPCRouter({
                 },
                 deletedAt: null
             }
+        })
+    }),
+    getCommits: protectedProcedure.input(z.object({
+        projectId: z.string()
+    })).query(async ({ ctx, input }) => {
+        pollCommit(input.projectId).then().catch(console.error)
+        return await ctx.db.commit.findMany({
+            where: { projectId: input.projectId }
         })
     })
 })
