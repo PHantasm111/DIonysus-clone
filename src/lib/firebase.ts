@@ -9,7 +9,7 @@ import { resolve } from "path";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCDawbN3TzOuUEWPiD2cBIwDSxQqC26v5o",
+    apiKey: process.env.FIREBASE_API_KEY!,
     authDomain: "dionysus-ph.firebaseapp.com",
     projectId: "dionysus-ph",
     storageBucket: "dionysus-ph.firebasestorage.app",
