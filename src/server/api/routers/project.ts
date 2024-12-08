@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { pollCommit } from "@/lib/github";
-import { indexGithubRepo } from "@/lib/github-loader";
+import { checkCredits, indexGithubRepo } from "@/lib/github-loader";
 
 export const projectRouter = createTRPCRouter({
     createProject: protectedProcedure.input(
@@ -11,6 +11,19 @@ export const projectRouter = createTRPCRouter({
             githubToken: z.string().optional()
         })
     ).mutation(async ({ ctx, input }) => {
+
+        const user = await ctx.db.user.findUnique({ where: { id: ctx.user.userId! }, select: { credits: true } })
+        if (!user) {
+            throw new Error('User not found')
+        }
+
+        const currentCredits = user?.credits || 0
+        const fileCount = await checkCredits(input.githubUrl, input.githubToken || '')
+
+        if (fileCount > currentCredits) {
+            throw new Error('Not enough credits')
+        }
+
         const project = await ctx.db.project.create({
             data: {
                 name: input.name,
@@ -24,6 +37,7 @@ export const projectRouter = createTRPCRouter({
         })
         await indexGithubRepo(project.id, input.githubUrl, input.githubToken)
         await pollCommit(project.id)
+        await ctx.db.user.update({ where: { id: ctx.user.userId! }, data: { credits: { decrement: fileCount } } })
         return project;
     }),
     getProjects: protectedProcedure.query(async ({ ctx }) => {
@@ -92,8 +106,29 @@ export const projectRouter = createTRPCRouter({
         return await ctx.db.meeting.delete({ where: { id: input.meetingId } })
     }),
 
-    getMeetingById : protectedProcedure.input(z.object({ meetingId: z.string() })).query(async ({ ctx, input }) => {
-        return await ctx.db.meeting.findUnique({where: {id: input.meetingId}, include: {issues: true}})
-    })
+    getMeetingById: protectedProcedure.input(z.object({ meetingId: z.string() })).query(async ({ ctx, input }) => {
+        return await ctx.db.meeting.findUnique({ where: { id: input.meetingId }, include: { issues: true } })
+    }),
 
+    archiveProject: protectedProcedure.input(z.object({ projectId: z.string() })).mutation(async ({ ctx, input }) => {
+        return await ctx.db.project.update({
+            where: { id: input.projectId },
+            data: { deletedAt: new Date() }
+        })
+    }),
+
+    getTeamMembers: protectedProcedure.input(z.object({ projectId: z.string() })).query(async ({ ctx, input }) => {
+        return await ctx.db.userToProject.findMany({ where: { projectId: input.projectId }, include: { user: true } })
+    }),
+
+    getMyCredits: protectedProcedure.query(async ({ ctx }) => {
+        return await ctx.db.user.findUnique({ where: { id: ctx.user.userId! }, select: { credits: true } })
+    }),
+
+    checkCredits: protectedProcedure.input(z.object({ githubUrl: z.string(), githubToken: z.string() })).mutation(async ({ ctx, input }) => {
+        const fileCount = await checkCredits(input.githubUrl, input.githubToken)
+        const userCredits = await ctx.db.user.findUnique({ where: { id: ctx.user.userId! }, select: { credits: true } })
+        return { fileCount, userCredits: userCredits?.credits || 0 }
+    }),
 })
+

@@ -10,9 +10,9 @@ import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import { api } from '@/trpc/react';
 import useProject from '@/hooks/use-project';
 import { toast } from 'sonner';
-import { useRouter } from 'next/router';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
+import { useRouter } from 'next/navigation';
 
 const MeetingCard = () => {
     const { project } = useProject();
@@ -29,6 +29,7 @@ const MeetingCard = () => {
     const [progress, setProgress] = React.useState(0);
     const router = useRouter();
     const uploadingMeeting = api.project.uploadMeeting.useMutation();
+
     const { getRootProps, getInputProps } = useDropzone({
         accept: {
             'audio/*': ['.mp3', '.wav', '.m4a']
