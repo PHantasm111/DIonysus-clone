@@ -13,6 +13,7 @@ import { readStreamableValue } from 'ai/rsc';
 import CodeReferences from './code-references';
 import { api } from '@/trpc/react';
 import { toast } from 'sonner';
+import useRefetch from '@/hooks/use-refetch';
 
 const AskQuestionCard = () => {
 
@@ -45,6 +46,7 @@ const AskQuestionCard = () => {
 
         setLoading(false);
     }
+    const refetch = useRefetch();
 
     return (
         <>
@@ -64,6 +66,8 @@ const AskQuestionCard = () => {
                                 }, {
                                     onSuccess: () => {
                                         toast.success('Answer saved!');
+                                        refetch();
+                                        setQuestion('');
                                     },
                                     onError: () => {
                                         toast.error('Failed to save answer!');
